@@ -1,0 +1,93 @@
+---
+title: "Untitled"
+author: "CJ Brown"
+date: "16 May 2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+# Surplus production model and risk analysis 
+# Coral trout 
+#CJ Brown 2020-05-16
+
+# Build parameter set 
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+
+```{r}
+
+rm(list = ls())
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(rstan)
+library(rethinking)
+
+load("model-outputs/model-runs-finfish+1.rda")
+modout1 <- modout
+spkeep1 <- spkeep
+
+load("model-outputs/model-runs-finfish+0.rda")
+
+nspp <- nrow(spkeep)
+m <- NULL
+for (i in 1:nspp){
+  p1 <- precis(modout[[i]])
+  p1 <- tibble::rownames_to_column(p1@output[c(3,4,5,6,7,8),c(1,3:4)], "Parameter")
+  p1$spp <- spkeep$COMMON_NAME[i]
+    p1$power <- "Stable"
+  m <- c(m, list(p1))
+}
+m0 <- do.call('rbind', m)
+m <- NULL
+for (i in 1:nspp){
+  p1 <- precis(modout1[[i]])
+  p1 <- tibble::rownames_to_column(p1@output[c(3,4,5,6,7,8),c(1,3:4)], "Parameter")
+  p1$spp <- spkeep1$COMMON_NAME[i]
+  p1$power <- "+1% p.a."
+  m <- c(m, list(p1))
+}
+m1 <- do.call('rbind', m)
+mall <- rbind(m0, m1)
+names(mall) <- make.names(names(mall), unique=TRUE, allow_ = TRUE)
+mall <- mall %>%
+  select(spp, power, Parameter, Mean, lower.0.89, upper.0.89) %>%
+    arrange(power) %>%
+    arrange(Parameter) %>%
+    arrange(spp)
+
+```
+#Coral trout relative bio 
+```{r}
+  post <- extract.samples(modout1[[1]]) %>% data.frame()
+  quantile(post$B.27/post$K, c(0.025, 0.5, 0.975))
+
+```
+
+
+## Model params
+
+```{r}
+knitr::kable(mall, digits = 2)
+```
+
+
+## Model fits 
+
+```{r}
+spkeep$power = "Stable"
+spkeep1$power = "+1% p.a."
+spall <- rbind(spkeep, spkeep1) %>%
+  select(COMMON_NAME, power, mod_rsq) %>%
+  arrange(power) %>%
+  arrange(COMMON_NAME)
+knitr::kable(spall, digits = 2)
+```
+
+
+
+
+
+
